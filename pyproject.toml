@@ -5,7 +5,9 @@ description = "A Python implementation of the Wave Function Collapse algorithm."
 authors = ["Oliver Wilkins <okwilkins@googlemail.com>"]
 
 [tool.poetry.dependencies]
-python = ">=3.7"
+python = "^3.7"
+numpy = "^1.20"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.4"
+flake8 = "^4.0"
