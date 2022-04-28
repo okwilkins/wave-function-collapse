@@ -66,11 +66,8 @@ class Map:
         mask = entropy_space == np.min(entropy_space)
         return np.random.choice(self.map_spaces[mask])
 
-
-@dataclass
-class MapManager:
-    def propergate_wave(map: Map) -> Map:
-        pass
+    def propergate_wave(self, start_map_space: MapSpace) -> None:
+        check_stack = get_map_space_neighbours(self, start_map_space)
 
 
 def generate_blank_map(
@@ -107,6 +104,15 @@ def get_map_space_neighbours(map_: Map, map_space: MapSpace) -> List[MapSpace]:
     return neighbours
 
 
+def convert_map_to_display(map_: Map) -> str:
+    display = ''
+    for y in range(map_.height):
+        for x in range(map_.width):
+            display += map_.map_spaces[x][y].tile.print_name + ' '
+        display += '\n'
+    return display
+
+
 def main():
     blank_tile = Tile(
         tile_type=TileType.UNKNOWN,
@@ -135,16 +141,15 @@ def main():
     )
 
     cool_map = generate_blank_map(
-        height=1000,
-        width=1000,
+        height=10,
+        width=10,
         blank_tile=blank_tile,
         blank_possibilities=[land_tile, coast_tile, sea_tile, mountain_tile]
     )
     map_space = cool_map.get_lowest_entropy_space()
     map_space.collapse(target_tile=land_tile)
 
-    print((map_space.x, map_space.y))
-    print([(space.x, space.y) for space in get_map_space_neighbours(cool_map, map_space)])
+    print(convert_map_to_display(cool_map))
 
 
 if __name__ == '__main__':
