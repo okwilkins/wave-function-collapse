@@ -26,15 +26,16 @@ class MapSpace:
     tile: Tile
     possibilities: List[Tile]
 
-    @property
-    def probabilities(self) -> List[float]:
+    def __hash__(self):
+        return hash((self.x, self.y, self.tile.tile_type))
+
+    def get_probabilities(self) -> List[float]:
         # Each probability is equal (for the time being)
         return [1 / len(self.possibilities) for _ in self.possibilities]
 
-    @property
-    def shannon_entropy(self) -> float:
+    def get_shannon_entropy(self) -> float:
         # entropy = - SUM(pi * log(pi)), where pi is the probability of a tile type
-        return -np.sum(self.probabilities * np.log(self.probabilities))
+        return -np.sum(self.get_probabilities() * np.log(self.get_probabilities()))
 
     def collapse(self, target_tile: Optional[Tile] = None) -> None:
         if target_tile is None:
@@ -59,15 +60,13 @@ class Map:
         return np.vectorize(lambda x: x.probabilities)(self.map_spaces)
 
     def get_entropy_space(self) -> np.array:
-        return np.vectorize(lambda x: x.shannon_entropy)(self.map_spaces)
+        return np.vectorize(lambda x: x.get_shannon_entropy())(self.map_spaces)
 
     def get_lowest_entropy_space(self) -> MapSpace:
         entropy_space = self.get_entropy_space()
         mask = entropy_space == np.min(entropy_space)
         return np.random.choice(self.map_spaces[mask])
 
-    def propergate_wave(self, start_map_space: MapSpace) -> None:
-        check_stack = get_map_space_neighbours(self, start_map_space)
 
 
 def generate_blank_map(
@@ -104,6 +103,20 @@ def get_map_space_neighbours(map_: Map, map_space: MapSpace) -> List[MapSpace]:
     return neighbours
 
 
+# def get_valid_neighbours(map_: Map, map_space: MapSpace) -> List[MapSpace]:
+#     neighbours = get_map_space_neighbours(map_, map_space)
+
+#     for neighbour in neighbours:
+#         for neighbour_possibility in neighbour.possibilities:
+#             if map_space.tile not in neighbour_possibility:
+
+def update_map_space_possibilities(map_space_1: MapSpace, map_space_2: MapSpace) -> None:
+    old_possibilities = map_space_2.possibilities
+    # TODO: Fix tile and tiletype mixup
+    new_possibilities = set(map_space_1.tile.allowed).intersection(set(map_space_2.possibilities))
+    # map_space_2.possibilities = new_possibilities
+
+
 def convert_map_to_display(map_: Map) -> str:
     display = ''
     for y in range(map_.height):
@@ -111,6 +124,29 @@ def convert_map_to_display(map_: Map) -> str:
             display += map_.map_spaces[x][y].tile.print_name + ' '
         display += '\n'
     return display
+
+
+@dataclass
+class MapManager:
+    map_: Map
+    possible_tiles: List[Tile]
+
+    def propergate_wave(self, start_map_space: MapSpace) -> None:
+        check_stack = get_map_space_neighbours(self, start_map_space)
+        i = 0
+
+        while len(check_stack) > 0:
+            current_intersect = np.intersect1d(
+                check_stack[i].possibilities,
+                self.possible_tiles
+            )
+
+            if current_intersect.size == 0:
+                check_stack[i].pop()
+                i -= 1
+
+
+            i += 1
 
 
 def main():
@@ -122,34 +158,35 @@ def main():
     land_tile = Tile(
         tile_type=TileType.LAND,
         print_name=TileType.LAND.value,
-        allowed=[TileType.LAND, TileType.MOUNTAIN]
+        allowed=[TileType.LAND, TileType.MOUNTAIN, TileType.COAST]
     )
     coast_tile = Tile(
         tile_type=TileType.COAST,
         print_name=TileType.COAST.value,
-        allowed=[TileType.LAND, TileType.SEA]
+        allowed=[TileType.COAST, TileType.LAND, TileType.SEA]
     )
     sea_tile = Tile(
         tile_type=TileType.SEA,
         print_name=TileType.SEA.value,
-        allowed=[TileType.COAST, TileType.SEA]
+        allowed=[TileType.SEA, TileType.COAST, TileType.SEA]
     )
     mountain_tile = Tile(
         tile_type=TileType.MOUNTAIN,
         print_name=TileType.MOUNTAIN.value,
-        allowed=[TileType.LAND, TileType.MOUNTAIN]
+        allowed=[TileType.MOUNTAIN, TileType.LAND]
     )
 
     cool_map = generate_blank_map(
-        height=10,
-        width=10,
+        height=5,
+        width=5,
         blank_tile=blank_tile,
         blank_possibilities=[land_tile, coast_tile, sea_tile, mountain_tile]
     )
     map_space = cool_map.get_lowest_entropy_space()
     map_space.collapse(target_tile=land_tile)
 
-    print(convert_map_to_display(cool_map))
+    neighbour_tiles = get_map_space_neighbours(cool_map, map_space)
+    update_map_space_possibilities(map_space, neighbour_tiles[0])
 
 
 if __name__ == '__main__':
