@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import List, Optional
 from enum import Enum
 from dataclasses import dataclass
 import numpy as np
@@ -35,7 +35,7 @@ class MapSpace:
     def shannon_entropy(self) -> float:
         # entropy = - SUM(pi * log(pi)), where pi is the probability of a tile type
         return -np.sum(self.probabilities * np.log(self.probabilities))
-    
+
     def collapse(self, target_tile: Optional[Tile] = None) -> None:
         if target_tile is None:
             # Randomly select a tile from the possibilities
@@ -55,33 +55,16 @@ class Map:
     width: int
     map_spaces: np.ndarray
 
-    @property
-    def probability_space(self) -> np.array:
-        probabilities = []
+    def get_probability_space(self) -> np.array:
+        return np.vectorize(lambda x: x.probabilities)(self.map_spaces)
 
-        for x in range(self.width):
-            probabilities.append([])
-            for y in range(self.height):
-                probabilities[x].append(self.map_spaces[x][y].probabilities)
-        
-        return np.array(probabilities)
-    
-    @property
-    def entropy_space(self) -> np.array:
-        entropies = []
+    def get_entropy_space(self) -> np.array:
+        return np.vectorize(lambda x: x.shannon_entropy)(self.map_spaces)
 
-        for x in range(self.width):
-            entropies.append([])
-            for y in range(self.height):
-                entropies[x].append(self.map_spaces[x][y].shannon_entropy)
-        
-        return np.array(entropies)
-
-    @property
-    def lowest_entropy_space(self) -> MapSpace:
-        return np.random.choice(
-            self.map_spaces[self.entropy_space == np.min(self.entropy_space)]
-        )
+    def get_lowest_entropy_space(self) -> MapSpace:
+        entropy_space = self.get_entropy_space()
+        mask = entropy_space == np.min(entropy_space)
+        return np.random.choice(self.map_spaces[mask])
 
 
 @dataclass
@@ -105,11 +88,11 @@ def generate_blank_map(
                 tile=blank_tile,
                 possibilities=blank_possibilities
             )
-    
+
     return Map(height=height, width=width, map_spaces=blank_map_spaces)
 
 
-def get_map_neighbours(map_: Map, map_space: MapSpace) -> List[MapSpace]:
+def get_map_space_neighbours(map_: Map, map_space: MapSpace) -> List[MapSpace]:
     neighbours = []
 
     if map_space.x - 1 >= 0:
@@ -120,7 +103,7 @@ def get_map_neighbours(map_: Map, map_space: MapSpace) -> List[MapSpace]:
         neighbours.append(map_.map_spaces[map_space.x][map_space.y - 1])
     if map_space.y + 1 < map_.height:
         neighbours.append(map_.map_spaces[map_space.x][map_space.y + 1])
-    
+
     return neighbours
 
 
@@ -152,16 +135,16 @@ def main():
     )
 
     cool_map = generate_blank_map(
-        height=10,
-        width=10,
+        height=1000,
+        width=1000,
         blank_tile=blank_tile,
         blank_possibilities=[land_tile, coast_tile, sea_tile, mountain_tile]
     )
-    map_space = cool_map.lowest_entropy_space
+    map_space = cool_map.get_lowest_entropy_space()
     map_space.collapse(target_tile=land_tile)
 
     print((map_space.x, map_space.y))
-    print([(space.x, space.y) for space in get_map_neighbours(cool_map, cool_map.lowest_entropy_space)])
+    print([(space.x, space.y) for space in get_map_space_neighbours(cool_map, map_space)])
 
 
 if __name__ == '__main__':
